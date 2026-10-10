@@ -122,6 +122,19 @@
     const jawWidth = p[12].x - p[4].x;
     const chinWidth = p[10].x - p[6].x;
 
+    // Facial adiposity proxies (Coetzee et al. 2009): cheek-to-jaw width and the
+    // jaw contour's perimeter relative to its area (rounder, fuller faces → lower).
+    const cheekJaw = (p[15].x - p[1].x) / (p[11].x - p[5].x);
+    let perim = 0;
+    let area = 0;
+    for (let i = 0; i <= 16; i++) {
+      const a = p[i];
+      const b = p[i === 16 ? 0 : i + 1];
+      perim += dist(a, b);
+      area += a.x * b.y - b.x * a.y;
+    }
+    const jawPerimArea = perim / Math.sqrt(Math.abs(area) / 2);
+
     // Face shape inputs. Forehead height is estimated as half the
     // brow-to-chin distance (equal thirds), since the hairline isn't tracked.
     const browToChin = p[8].y - glabellaY;
@@ -147,121 +160,244 @@
       jawRatio: jawWidth / faceWidth,
       chinRatio: chinWidth / faceWidth,
       lengthRatio: faceLength / faceWidth,
+      cheekJaw,
+      jawPerimArea,
     };
   }
 
+  // Cut-offs are percentiles of the 2,750 reference men (68-point jaw contours
+  // are smooth, so textbook ratios don't separate shapes well):
+  // length ratio p20 = 1.25, p85 = 1.38; jaw ratio p15 = 0.782, p50 = 0.796,
+  // p60 = 0.799, p85 = 0.81.
   function classifyFaceShape(m) {
-    const { lengthRatio: L, jawRatio: J, chinRatio: C } = m;
-    if (L >= 1.47) return J >= 0.8 ? 'rectangle' : 'oblong';
-    if (J >= 0.81) return L >= 1.4 ? 'rectangle' : 'square';
-    if (J < 0.75 && C < 0.46) return 'heart';
-    if (L < 1.25) return 'round';
+    const { lengthRatio: L, jawRatio: J } = m;
+    if (L >= 1.38) return J >= 0.799 ? 'rectangle' : 'oblong';
+    if (L <= 1.25) return J >= 0.8 ? 'square' : 'round';
+    if (J >= 0.81) return 'square';
+    if (J <= 0.782) return 'heart';
     return 'oval';
   }
 
   /*
-   * Metric definitions. `band` returns 'low' | 'ideal' | 'high', which the
-   * recommendation engine keys off.
+   * Displayed parameters. Scores come from js/calibration.js, learned from
+   * 2,750 rated male faces (see tools/calibrate): each parameter's score is
+   * where your value sits on the fitted rating curve, from 1 (lowest-rated
+   * end) to 10 (highest-rated end). `impact` says how much that parameter
+   * moved ratings in the data.
    */
+  const fixed = (n) => (v) => v.toFixed(n);
+  const pct = (v) => `${(v * 100).toFixed(0)}%`;
   const METRICS = [
-    {
-      id: 'symmetry', label: 'Symmetry', key: 'asym', ideal: 0.02, tol: 0.03,
-      fmt: (v) => `${Math.max(0, 100 - v * 400).toFixed(0)}%`,
-      idealText: '≥ 90%',
-      desc: 'How closely the left and right halves mirror each other. Everyone is a bit asymmetric; the head angle in the photo also affects this.',
-      band: (v) => (v > 0.05 ? 'low' : 'ideal'),
-      oneSided: true,
-    },
-    {
-      id: 'thirds', label: 'Facial thirds', key: 'thirdsRatio', ideal: 0.98, tol: 0.14,
-      fmt: (v) => `${v.toFixed(2)} : 1`, idealText: '0.9 – 1.06 : 1',
-      desc: 'Lower face (nose base → chin) compared to mid face (brows → nose base). Balanced faces have roughly equal thirds.',
-      band: (v) => (v < 0.85 ? 'low' : v > 1.12 ? 'high' : 'ideal'),
-    },
-    {
-      id: 'eyeSpacing', label: 'Eye spacing', key: 'eyeSpacing', ideal: 1.55, tol: 0.15,
-      fmt: (v) => `${v.toFixed(2)}× eye width`, idealText: '1.45 – 1.65×',
-      desc: 'Gap between the inner eye corners relative to the width of one eye (the "rule of fifths"). Detected corners sit just inside the visible ones, so balanced eyes read ≈ 1.55 here.',
-      band: (v) => (v < 1.4 ? 'low' : v > 1.72 ? 'high' : 'ideal'),
-    },
-    {
-      id: 'canthalTilt', label: 'Canthal tilt', key: 'canthalTilt', ideal: 5, tol: 5,
-      fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}°`, idealText: '+3° to +8°',
-      desc: 'Angle from the inner to the outer eye corner. A slight upward tilt reads as alert and youthful.',
-      band: (v) => (v < 1 ? 'low' : v > 10 ? 'high' : 'ideal'),
-    },
-    {
-      id: 'fwhr', label: 'Width-to-height', key: 'fwhr', ideal: 1.85, tol: 0.2,
-      fmt: (v) => v.toFixed(2), idealText: '1.7 – 2.0',
-      desc: 'Face width divided by upper-face height (brows → upper lip). Captures how broad vs. long the mid face looks; a higher ratio is generally read as more masculine.',
-      band: (v) => (v < 1.65 ? 'low' : v > 2.05 ? 'high' : 'ideal'),
-    },
-    {
-      id: 'nose', label: 'Nose width', key: 'noseRatio', ideal: 0.63, tol: 0.1,
-      fmt: (v) => `${v.toFixed(2)}× eye gap`, idealText: '0.55 – 0.7×',
-      desc: 'Nostril width compared to the gap between the eyes. Classical canons put the full nose width roughly equal to the eye gap; the nostril points measured here read ≈ 0.63 for that.',
-      band: (v) => (v < 0.5 ? 'low' : v > 0.76 ? 'high' : 'ideal'),
-    },
-    {
-      id: 'mouth', label: 'Mouth width', key: 'mouthNose', ideal: 2.2, tol: 0.3,
-      fmt: (v) => `${v.toFixed(2)}× nose`, idealText: '2.0 – 2.4×',
-      desc: 'Mouth width relative to nose width. Smiling widens the mouth, so use a neutral expression.',
-      band: (v) => (v < 1.85 ? 'low' : v > 2.6 ? 'high' : 'ideal'),
-    },
-    {
-      id: 'lips', label: 'Lip balance', key: 'lipRatio', ideal: 1.6, tol: 0.5,
-      fmt: (v) => `1 : ${v.toFixed(2)}`, idealText: '1 : 1.6',
-      desc: 'Upper-lip height vs. lower-lip height. A slightly fuller lower lip is the most common ideal (this counts less toward the overall score).',
-      band: (v) => (v < 1.15 ? 'low' : v > 2.2 ? 'high' : 'ideal'),
-    },
-    {
-      id: 'chin', label: 'Chin & philtrum', key: 'chinPhiltrum', ideal: 2.2, tol: 0.45,
-      fmt: (v) => `${v.toFixed(2)}× philtrum`, idealText: '≈ 2 – 2.4×',
-      desc: 'Chin height (lower lip → chin) compared to the philtrum (nose → upper lip). Indicates chin projection and lower-face balance.',
-      band: (v) => (v < 1.75 ? 'low' : v > 2.8 ? 'high' : 'ideal'),
-    },
-    {
-      id: 'jaw', label: 'Jaw definition', key: 'jawAngle', ideal: 123, tol: 10,
-      fmt: (v) => `${v.toFixed(0)}°`, idealText: '115° – 130°',
-      desc: 'Approximate jaw angle from the front. Lower values mean a sharper, more angular jaw; higher values a softer, rounder one.',
-      band: (v) => (v < 110 ? 'high' : v > 134 ? 'low' : 'ideal'),
-    },
+    // --- Face structure
+    { key: 'shapeScore', cat: 'structure', label: 'Shape match', fmt: (v) => `${v.toFixed(2)} / 5`,
+      desc: 'How closely your overall landmark geometry matches the face shapes that were rated highest, learned from all 68 points at once. The single strongest predictor in the data.' },
+    { key: 'jawAngle', cat: 'structure', label: 'Jaw taper', fmt: (v) => `${v.toFixed(0)}°`,
+      desc: 'How the jaw tapers from the ears to the chin, seen from the front. A leaner, more tapered lower face was rated higher; a wide, heavy lower face lower.' },
+    { key: 'canthalTilt', cat: 'structure', label: 'Eye tilt', fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}°`,
+      desc: 'Angle from the inner to the outer eye corner. An upward (positive) tilt was rated clearly higher.' },
+    { key: 'browEyeGap', cat: 'structure', label: 'Brow position', fmt: (v) => `${v.toFixed(2)}× eye width`,
+      desc: 'Distance from eyebrows to eyes. Lower-set brows that sit close to the eyes (a classic masculine trait) were rated higher.' },
+    { key: 'eyeOpenness', cat: 'structure', label: 'Eye size', fmt: fixed(2),
+      desc: 'Eye height relative to eye width. More open, less hooded or puffy eyes were rated higher.' },
+    { key: 'eyeSpacing', cat: 'structure', label: 'Eye spacing', fmt: (v) => `${v.toFixed(2)}× eye width`,
+      desc: 'Gap between the inner eye corners relative to eye width. Wider eyes relative to the gap were rated higher.' },
+    { key: 'lipRatio', cat: 'structure', label: 'Lip balance', fmt: (v) => `1 : ${v.toFixed(2)}`,
+      desc: 'Upper-lip to lower-lip height. A fuller lower lip relative to the upper was rated higher.' },
+    { key: 'jawRatio', cat: 'structure', label: 'Lower-face width', fmt: pct,
+      desc: 'Jaw width at mouth level as a share of face width. Narrower lower faces were rated higher in this data.' },
+    { key: 'fwhr', cat: 'structure', label: 'Width-to-height', fmt: fixed(2),
+      desc: 'Face width divided by upper-face height (brows → upper lip). Ratings peaked at a moderate value.' },
+    { key: 'cheekJaw', cat: 'structure', label: 'Facial leanness', fmt: fixed(2),
+      desc: 'Cheekbone width relative to jaw width — a standard marker of facial fat. Leaner faces (higher values) were rated higher.' },
+    { key: 'thirdsRatio', cat: 'structure', label: 'Facial thirds', fmt: (v) => `${v.toFixed(2)} : 1`,
+      desc: 'Lower face (nose → chin) compared to mid face (brows → nose).' },
+    { key: 'noseRatio', cat: 'structure', label: 'Nose width', fmt: (v) => `${v.toFixed(2)}× eye gap`,
+      desc: 'Nostril width compared to the gap between the eyes. Ratings peaked at a moderate width.' },
+    { key: 'chinPhiltrum', cat: 'structure', label: 'Chin height', fmt: (v) => `${v.toFixed(2)}× philtrum`,
+      desc: 'Chin height (lower lip → chin) relative to the philtrum (nose → upper lip). Ratings peaked at a balanced value.' },
+    { key: 'mouthNose', cat: 'structure', label: 'Mouth width', fmt: (v) => `${v.toFixed(2)}× nose`,
+      desc: 'Mouth width relative to nose width. Smiling widens the mouth, so use a neutral expression.' },
+    { key: 'asym', cat: 'structure', label: 'Symmetry', fmt: (v) => `${Math.max(0, 100 - v * 400).toFixed(0)}%`, literature: true,
+      desc: 'How closely the left and right halves mirror each other. In the photo data this is dominated by head angle, so it is scored from published research instead and does not count toward your score.' },
+
+    // --- Skin & features (pixel-based)
+    { key: 'eyeContrast', cat: 'features', label: 'Eye-area definition', fmt: pct,
+      desc: 'How much darker the eyes, lashes and eye sockets are than the surrounding skin. Deep-set, well-defined eyes were rated much higher.' },
+    { key: 'browContrast', cat: 'features', label: 'Brow density', fmt: pct,
+      desc: 'How dark and dense your eyebrows are compared to your forehead. Fuller, darker brows were rated higher.' },
+    { key: 'skinRedness', cat: 'features', label: 'Skin redness', fmt: fixed(1), color: true,
+      desc: 'Average redness of the cheek and forehead skin. Calmer, less red skin was rated higher.' },
+    { key: 'lipContrast', cat: 'features', label: 'Lip colour', fmt: fixed(1), color: true,
+      desc: 'How much redder your lips are than your skin. Healthy lip colour was rated slightly higher.' },
+
+    // --- Photo quality (not part of the face score)
+    { key: 'brightness', cat: 'photo', label: 'Exposure', fmt: fixed(0),
+      desc: 'Brightness of your skin in the photo. Well-lit photos were rated higher.' },
+    { key: 'lightBalance', cat: 'photo', label: 'Light direction', fmt: pct,
+      desc: 'Difference in light between the two sides of the face. Soft light from one side (like a window at 45°) sculpts the face; flat, frontal flash looks worse.' },
+    { key: 'sharpness', cat: 'photo', label: 'Sharpness', fmt: fixed(1),
+      desc: 'Fine detail in the photo. Blurry, low-resolution or heavily filtered photos were rated lower.' },
   ];
 
-  function analyze(rawPoints) {
-    const m = measure(rawPoints);
-    const metrics = METRICS.map((def) => {
-      const value = m[def.key];
-      let score = scoreFor(value, def.ideal, def.tol);
-      if (def.oneSided && value < def.ideal) score = 10;
-      return {
-        id: def.id, label: def.label, desc: def.desc,
-        value, display: def.fmt(value), idealText: def.idealText,
-        score: Math.round(score * 10) / 10,
-        band: def.band(value),
-      };
-    });
+  const impactOf = (effect) => (effect >= 0.9 ? 'high' : effect >= 0.45 ? 'medium' : 'low');
 
-    // Symmetry, thirds and jaw/chin structure carry the most weight for male faces.
-    const weights = { symmetry: 2, thirds: 1.5, jaw: 1.5, eyeSpacing: 1.2, chin: 1.2, fwhr: 1.2, lips: 0.6 };
-    let total = 0;
-    let wsum = 0;
-    for (const x of metrics) {
-      const w = weights[x.id] || 1;
-      total += x.score * w;
-      wsum += w;
+  /** Mirrors curve_values() in tools/calibrate/analyze.py. */
+  function curveAt(stat, value) {
+    const v = value == null || Number.isNaN(value) ? stat.mean : Math.min(stat.clip[1], Math.max(stat.clip[0], value));
+    const z = Math.max(-2.5, Math.min(2.5, (v - stat.mean) / stat.sd));
+    return stat.curve[0] + stat.curve[1] * z + stat.curve[2] * z * z;
+  }
+
+  function idealText(stat, fmt) {
+    if (stat.kind === 'peak') return `Best around ${fmt(stat.ideal)}`;
+    const top = fmt(stat.top[1]);
+    return stat.kind === 'up' ? `Higher is better · top men ≈ ${top}` : `Lower is better · top men ≈ ${top}`;
+  }
+
+  /** Which side of the ideal a weak value sits on — the recommendation engine keys off this. */
+  function bandOf(stat, value, score) {
+    if (score >= 5.5) return 'ideal';
+    if (stat.kind === 'up') return 'low';
+    if (stat.kind === 'down') return 'high';
+    return value < stat.ideal ? 'low' : 'high';
+  }
+
+  function shapeModels(leveled) {
+    const S = global.FaceCalibration.shape;
+    const le = centroid(leveled.slice(36, 42));
+    const re = centroid(leveled.slice(42, 48));
+    const mid = { x: (le.x + re.x) / 2, y: (le.y + re.y) / 2 };
+    const ipd = dist(le, re);
+    const v = [];
+    for (const p of leveled) v.push((p.x - mid.x) / ipd, (p.y - mid.y) / ipd);
+    const P = S.pcs.map((pc) => pc.reduce((acc, w, i) => acc + w * (v[i] - S.mean[i]), 0));
+    const dot = (a, b) => a.reduce((acc, x, i) => acc + x * b[i], 0);
+    return {
+      shapeScore: dot(P, S.attract) + S.attractBias,
+      masculinity: (dot(P, S.lda) - S.ldaMean) / S.ldaSd,
+    };
+  }
+
+  function percentileOf(pred) {
+    const t = global.FaceCalibration.model.percentiles;
+    if (pred <= t[0]) return 0;
+    if (pred >= t[100]) return 100;
+    let i = 0;
+    while (t[i + 1] < pred) i++;
+    return i + (pred - t[i]) / (t[i + 1] - t[i] || 1);
+  }
+
+  /**
+   * Overall prediction: bias + sum of non-negative weights x each parameter's
+   * curve, so a better parameter score can only raise the overall score.
+   */
+  function predict(values, photoOverride) {
+    const C = global.FaceCalibration;
+    const M = C.model;
+    let y = M.bias;
+    M.features.forEach((k, i) => {
+      const st = C.features[k];
+      const v = photoOverride && M.photo.includes(k) ? photoOverride(st) : values[k];
+      y += M.weights[i] * (curveAt(st, v) - M.gMean[i]);
+    });
+    return y;
+  }
+
+  /**
+   * @param rawPoints   68 landmarks in image coordinates
+   * @param pixel       output of FaceFeatures.extract (optional)
+   * @param expressions face-api expression probabilities (optional)
+   */
+  function analyze(rawPoints, pixel, expressions) {
+    const C = global.FaceCalibration;
+    const m = measure(rawPoints);
+    const values = { ...m, ...(pixel || {}), ...shapeModels(m.leveled) };
+    values.absYaw = Math.abs(m.yaw);
+    values.absRoll = Math.abs(m.rollDeg);
+    if (expressions) {
+      values.happy = expressions.happy;
+      values.negative = expressions.sad + expressions.angry + expressions.disgusted + expressions.fearful;
+    }
+
+    const metrics = [];
+    for (const def of METRICS) {
+      const value = values[def.key];
+      if (value == null || Number.isNaN(value)) continue;
+      const stat = C.features[def.key];
+      let score;
+      let ideal;
+      let impact;
+      if (def.literature) {
+        score = value <= 0.02 ? 10 : scoreFor(value, 0.02, 0.03);
+        ideal = '≥ 90% (research-based)';
+        impact = 'not scored';
+      } else {
+        score = 1 + (9 * (curveAt(stat, value) - stat.lo)) / (stat.hi - stat.lo || 1);
+        ideal = idealText(stat, def.fmt);
+        impact = impactOf(stat.effect);
+      }
+      metrics.push({
+        id: def.key, cat: def.cat, label: def.label, desc: def.desc,
+        value, display: def.fmt(value), idealText: ideal, impact,
+        score: Math.round(score * 10) / 10,
+        band: def.literature ? (value > 0.05 ? 'low' : 'ideal') : bandOf(stat, value, score),
+      });
+    }
+
+    // Face score: the photo-quality inputs are held at the dataset median, so the
+    // same face scores the same in a good or bad photo. "As photographed" uses the
+    // real photo inputs; "best photo" uses the top-rated men's photo quality.
+    const facePred = predict(values, (st) => st.all[1]);
+    const photoPred = predict(values);
+    const bestPhotoPred = predict(values, (st) => st.top[1]);
+    const facePct = percentileOf(facePred);
+    const toTen = (p) => Math.round((1 + (9 * p) / 100) * 10) / 10;
+
+    // Informational readings (no score)
+    const info = [];
+    const masc = values.masculinity;
+    info.push({
+      label: 'Masculinity of face shape',
+      value: masc > 0.75 ? 'Very masculine' : masc > 0.25 ? 'Masculine' : masc > -0.25 ? 'Average for men' : masc > -0.75 ? 'Softer' : 'Much softer',
+      note: 'Compared with the men in the reference set. Interestingly, it had no measurable effect on ratings.',
+    });
+    if (pixel) {
+      const bs = C.features.beardShadow;
+      const bt = C.features.beardTexture;
+      const zb = (pixel.beardShadow - bs.mean) / bs.sd + (pixel.beardTexture - bt.mean) / bt.sd;
+      info.push({
+        label: 'Facial hair (estimated)',
+        value: zb > 2 ? 'Beard or heavy stubble' : zb > 0.8 ? 'Light stubble' : 'Clean-shaven / very light',
+        note: 'Estimated from shading and texture around the mouth and chin.',
+      });
+      values.facialHairLevel = zb;
+    }
+    if (expressions) {
+      const top = Object.entries(expressions).sort((a, b) => b[1] - a[1])[0][0];
+      info.push({
+        label: 'Expression',
+        value: top === 'happy' ? 'Smiling' : top === 'neutral' ? 'Neutral' : top[0].toUpperCase() + top.slice(1),
+        note: 'For men a calm, confident neutral expression rated as well as or better than a big smile in this data.',
+      });
     }
 
     const warnings = [];
-    if (Math.abs(m.yaw) > 0.12) warnings.push('Your head is turned to one side — symmetry and width readings will be off. Face the camera straight on for best accuracy.');
+    if (Math.abs(m.yaw) > 0.12) warnings.push('Your head is turned to one side — several readings will be off. Face the camera straight on for best accuracy.');
     if (Math.abs(m.rollDeg) > 12) warnings.push('Your head is tilted. It was auto-corrected, but a level photo is more accurate.');
     if (m.mouthOpen > 0.25) warnings.push('Your mouth is open or you are smiling — lip and mouth readings work best with a relaxed, closed-mouth expression.');
+    if (pixel && !pixel.isColour) warnings.push('Black-and-white photo — skin and lip colour can\'t be measured.');
+    if (pixel && !pixel.foreheadVisible) warnings.push('Your forehead seems covered by hair — skin readings use only the cheeks.');
 
     return {
-      overall: Math.round((total / wsum) * 10) / 10,
+      overall: toTen(facePct),
+      percentile: Math.round(facePct),
+      asPhotographed: toTen(percentileOf(photoPred)),
+      withBestPhoto: toTen(percentileOf(bestPhotoPred)),
       metrics,
+      info,
       faceShape: classifyFaceShape(m),
       raw: m,
+      values,
       warnings,
     };
   }

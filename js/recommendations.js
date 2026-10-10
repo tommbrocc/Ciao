@@ -84,52 +84,45 @@
     },
   };
 
+  // Keyed by metric id → band ('low' | 'high' = which side of the ideal you are on).
   const METRIC_TIPS = {
-    symmetry: {
+    shapeScore: {
       low: {
-        title: 'Balance minor asymmetry',
+        title: 'Overall face shape',
         tips: [
-          'Use a side part toward your "fuller" side — asymmetric cuts disguise facial asymmetry well.',
-          'Stubble or a short beard evens out small jaw and cheek differences.',
-          'In photos, find your better side and turn ~15° toward it.',
-          'Check habits: chewing or sleeping on one side can accentuate asymmetry over time.',
-          'Keep your eyebrows tidy and even — they are the most noticeable asymmetry.',
+          'Bone structure is fixed, but the soft tissue around it isn\'t: getting leaner is the biggest lever on overall face shape.',
+          'Use the haircut and beard suggestions above — they are chosen to balance your specific face shape.',
+          'Work on the parameters marked "high impact" below that you can change (brows, eye area, skin, leanness).',
         ],
       },
     },
-    thirds: {
-      high: {
-        title: 'Long lower third',
-        tips: [
-          'Keep the beard fuller on the sides and short on the chin to shorten the lower face.',
-          'A fringe or volume at the sides balances a longer lower face.',
-          'Avoid long goatees or pointed chin beards.',
-        ],
-      },
+    jawAngle: {
       low: {
-        title: 'Short lower third',
+        title: 'Wide, heavy lower face',
         tips: [
-          'A goatee or chin-focused beard adds length to the lower face.',
-          'Add height on top of the hair (quiff, pompadour) to elongate overall.',
-          'Good posture with the chin slightly forward in photos helps.',
+          'Lowering body fat (roughly 12–15%) is the most effective way to slim and taper the lower face.',
+          'Shape the beard to taper: shorter on the sides and jaw corners, slightly longer at the chin.',
+          'Keep a sharp beard neckline (≈2 fingers above the Adam\'s apple) so the jaw has a clean edge.',
+          'Cut down on salt and alcohol — water retention shows up first in the lower face.',
         ],
       },
     },
-    eyeSpacing: {
+    jawRatio: {
       high: {
-        title: 'Wide-set eyes',
+        title: 'Wide lower face',
         tips: [
-          'Keep the inner part of the brows full — don\'t over-trim the inner ends.',
-          'Glasses with a dark or thick bridge visually bring the eyes closer.',
-          'A hairstyle with volume at the centre (quiff) pulls focus inward.',
+          'Add a little height on top of the hair and keep the sides tight (fade or taper) to rebalance width.',
+          'Keep beard sides short; let the chin carry a little more length.',
         ],
       },
+    },
+    cheekJaw: {
       low: {
-        title: 'Close-set eyes',
+        title: 'Fuller face',
         tips: [
-          'Clean up the unibrow area so the gap between your brows is clear.',
-          'Frames with a clear or thin metal bridge create a sense of space.',
-          'Width at the sides of the haircut balances the centre of the face.',
+          'Facial fat is the most changeable part of your face: a modest calorie deficit plus strength training shows quickly in the cheeks and jaw.',
+          'Reduce salt, alcohol and late heavy meals to cut puffiness.',
+          'Short stubble darkens the jaw edge and makes the face look leaner.',
         ],
       },
     },
@@ -137,21 +130,61 @@
       low: {
         title: 'Neutral / downward eye tilt',
         tips: [
-          'Groom the brow tails so they don\'t droop — a clean, slightly lifted outer brow makes eyes look sharper.',
-          'Get enough sleep and cut down on salt and alcohol — puffiness pulls the eye corners down.',
-          'A cold compress or caffeine eye cream in the morning reduces under-eye puffiness.',
+          'Groom the brow tails so they don\'t droop — a clean, slightly lifted outer brow makes the eyes look sharper.',
+          'Sleep and less salt/alcohol reduce puffiness that pulls the outer eye corners down.',
           'Frames with a strong upper rim (browline, wayfarer) lift the eye area.',
+          'In photos, a slight "squinch" (lower lids gently raised) instead of wide-open eyes looks more confident.',
+        ],
+      },
+    },
+    browEyeGap: {
+      high: {
+        title: 'High-set brows',
+        tips: [
+          'Don\'t trim the lower edge of your brows — let them grow down toward the eyes; only remove strays above.',
+          'A clear brow gel keeps the hairs brushed flat and slightly lower instead of fanning upward.',
+          'Avoid raising your eyebrows in photos; relax the forehead.',
+          'Glasses with a thick top rim visually lower the brow line.',
+        ],
+      },
+    },
+    eyeOpenness: {
+      low: {
+        title: 'Small or hooded-looking eyes',
+        tips: [
+          'Sleep 7–9 h and keep salt/alcohol low the night before photos — puffy lids make eyes look smaller.',
+          'A cold compress or caffeine eye gel in the morning reduces swelling.',
+          'Face the light in photos; squinting into the sun or a lamp narrows the eyes.',
+        ],
+      },
+    },
+    eyeSpacing: {
+      high: {
+        title: 'Wide-set or small eyes',
+        tips: [
+          'Keep the inner part of the brows full — don\'t over-trim the inner ends.',
+          'Glasses with a dark or thick bridge visually bring the eyes closer.',
+          'A hairstyle with volume at the centre (quiff) pulls focus inward.',
+        ],
+      },
+    },
+    lipRatio: {
+      low: {
+        title: 'Thinner lower lip',
+        tips: [
+          'Use a lip balm with SPF daily — dry, flat lips look thinner.',
+          'A neat goatee or soul patch frames the lower lip.',
+          'Stay hydrated; dehydration shows in the lips first.',
         ],
       },
     },
     fwhr: {
       low: {
-        title: 'Narrow / long mid face',
+        title: 'Long, narrow mid face',
         tips: [
           'Choose haircuts with width at the sides rather than height on top.',
           'A beard kept fuller on the cheeks adds horizontal width.',
           'Wider glasses frames break up vertical length.',
-          'Building some neck and trap muscle makes a narrow face look more proportionate.',
         ],
       },
       high: {
@@ -163,61 +196,123 @@
         ],
       },
     },
-    nose: {
+    thirdsRatio: {
+      high: {
+        title: 'Long lower third',
+        tips: [
+          'Keep the beard fuller on the sides and short on the chin to shorten the lower face.',
+          'A fringe or volume at the sides balances a longer lower face.',
+          'Avoid long goatees or pointed chin beards.',
+        ],
+      },
+    },
+    noseRatio: {
       high: {
         title: 'Wider nose',
         tips: [
-          'Fuller, well-groomed brows and a beard balance the size of features around the nose.',
+          'Fuller, well-groomed brows and some facial hair balance the features around the nose.',
           'Glasses with a higher, bolder bridge draw attention upward.',
-          'Avoid very short, tight buzz cuts that make central features dominate.',
+          'In photos, avoid wide-angle phone lenses close to the face — they enlarge the nose. Step back and zoom in (2×).',
         ],
       },
     },
-    mouth: {
+    chinPhiltrum: {
       low: {
-        title: 'Smaller mouth',
+        title: 'Short / recessed chin',
         tips: [
-          'Keep the moustache trimmed above the lip so it doesn\'t hide your mouth.',
-          'A wider moustache/beard frame around the mouth (e.g. Balbo) adds width.',
-        ],
-      },
-    },
-    lips: {
-      low: {
-        title: 'Thinner lower lip',
-        tips: [
-          'Use a lip balm with SPF — dry, cracked lips look thinner.',
-          'A neat goatee or soul patch frames the lower lip.',
+          'A goatee or chin beard is the best non-surgical way to add chin length and projection.',
+          'In photos, push your face slightly forward and tilt the chin down a touch.',
+          'Fix forward-head posture (strengthen the upper back) — it makes the chin look weaker.',
+          'If it really bothers you, a dermatologist can discuss chin filler.',
         ],
       },
       high: {
-        title: 'Thinner upper lip',
+        title: 'Long chin',
         tips: [
-          'A well-shaped moustache adds weight above the mouth.',
-          'Keep lips hydrated — definition matters more than size.',
+          'Keep chin beard length short; let the cheeks and moustache carry the beard instead.',
+          'Volume at the sides of the haircut balances a longer lower face.',
         ],
       },
     },
-    chin: {
+    asym: {
       low: {
-        title: 'Recessed / short chin',
+        title: 'Balance minor asymmetry',
         tips: [
-          'A goatee or chin beard is the single best non-surgical way to add chin projection — keep it a bit longer at the chin.',
-          'In photos, push your face slightly forward and tilt the chin down a touch.',
-          'Fix forward-head posture (strengthen upper back) — it makes the chin look weaker.',
-          'Reducing body fat sharpens the chin-to-neck angle.',
-          'If it really bothers you, a dermatologist can discuss chin filler or an implant.',
+          'Use a side part toward your "fuller" side — asymmetric cuts disguise facial asymmetry.',
+          'Stubble or a short beard evens out small jaw and cheek differences.',
+          'Make sure both eyebrows are groomed to the same height and shape.',
+          'Check habits: chewing or sleeping on one side can accentuate asymmetry over time.',
         ],
       },
     },
-    jaw: {
+    eyeContrast: {
       low: {
-        title: 'Soft jawline',
+        title: 'Low eye-area definition',
         tips: [
-          'Short boxed beard or heavy stubble with a sharp neckline (≈2 fingers above the Adam\'s apple) "draws" a jawline.',
-          'Lowering body fat (to roughly 12–15%) is the most effective way to reveal jaw definition.',
-          'Keep the sides of your haircut short (fade or taper) to emphasise the angles.',
-          'Chewing gum and "mewing" have little scientific support — don\'t expect big changes from them.',
+          'Groom the brows so they frame the eyes clearly — this is the fastest way to add definition.',
+          'Sleep, hydration and an eye cream with caffeine reduce puffiness that flattens the eye area.',
+          'If your lashes and brows are very light, a professional brow/lash tint (lasts ~6 weeks) adds a lot of definition without looking like makeup.',
+          'Overhead or slightly side light in photos creates natural depth around the eyes; flat flash removes it.',
+        ],
+      },
+    },
+    browContrast: {
+      low: {
+        title: 'Thin or light eyebrows',
+        tips: [
+          'Stop over-trimming: let your brows grow for 6–8 weeks, then only tidy strays.',
+          'A tinted brow gel (in a shade close to your hair) makes sparse brows look fuller and natural.',
+          'Brow tinting at a barber or salon is common for men with light brows.',
+          'Topical minoxidil is sometimes used off-label for sparse brows — ask a dermatologist first.',
+        ],
+      },
+    },
+    skinRedness: {
+      high: {
+        title: 'Skin redness',
+        tips: [
+          'Use a gentle, fragrance-free cleanser and lukewarm (not hot) water.',
+          'A moisturizer with niacinamide or azelaic acid calms redness and evens tone.',
+          'Daily SPF 30+ — UV is a major cause of redness and blotchiness.',
+          'Shave with the grain using a sharp blade and an alcohol-free aftershave balm to avoid razor irritation.',
+          'Persistent flushing or bumps can be rosacea — a dermatologist can treat it effectively.',
+        ],
+      },
+    },
+    lipContrast: {
+      low: {
+        title: 'Pale lips',
+        tips: [
+          'Exfoliate lips gently once a week and use a lip balm daily — healthy lips have more natural colour.',
+          'Stay hydrated and avoid smoking, which dulls lip colour.',
+        ],
+      },
+    },
+  };
+
+  const PHOTO_TIPS = {
+    brightness: {
+      low: {
+        title: 'Underexposed photo',
+        tips: ['Take photos facing a window or outdoors in open shade.', 'Avoid backlight (a bright window behind you).'],
+      },
+    },
+    lightBalance: {
+      low: {
+        title: 'Flat lighting',
+        tips: [
+          'Stand at about 45° to a window so the light falls from one side — it sculpts the cheekbones and jaw.',
+          'Avoid on-camera flash and overhead fluorescent light, which flatten the face.',
+        ],
+      },
+    },
+    sharpness: {
+      low: {
+        title: 'Blurry or soft photo',
+        tips: [
+          'Clean the camera lens and hold still, or use a timer and something to lean the phone on.',
+          'Use the rear camera when possible — it\'s much sharper than the selfie camera.',
+          'Avoid beauty filters and heavy compression (screenshots of screenshots).',
         ],
       },
     },
@@ -251,15 +346,20 @@
     const shape = FACE_SHAPES[result.faceShape];
     const showBeard = prefs.beard !== 'none';
 
-    const improvements = [];
-    for (const m of result.metrics) {
-      const byBand = METRIC_TIPS[m.id];
-      const entry = byBand && byBand[m.band];
-      if (!entry || m.score >= 8) continue;
-      const tips = showBeard ? entry.tips : entry.tips.filter((t) => !FACIAL_HAIR_RE.test(t));
-      if (tips.length) improvements.push({ metric: m.label, score: m.score, title: entry.title, tips });
-    }
-    improvements.sort((a, b) => a.score - b.score);
+    const tipsFor = (table, metrics) => {
+      const out = [];
+      for (const m of metrics) {
+        const entry = table[m.id] && table[m.id][m.band];
+        if (!entry) continue;
+        const tips = showBeard ? entry.tips : entry.tips.filter((t) => !FACIAL_HAIR_RE.test(t));
+        if (tips.length) out.push({ metric: m.label, score: m.score, impact: m.impact, title: entry.title, tips });
+      }
+      // Most impactful and weakest first.
+      const rank = { high: 0, medium: 1, low: 2, 'not scored': 2 };
+      return out.sort((a, b) => rank[a.impact] - rank[b.impact] || a.score - b.score);
+    };
+    const improvements = tipsFor(METRIC_TIPS, result.metrics.filter((m) => m.cat !== 'photo'));
+    const photoTips = tipsFor(PHOTO_TIPS, result.metrics.filter((m) => m.cat === 'photo'));
 
     const extras = [];
     if (prefs.hair === 'thinning') {
@@ -270,7 +370,7 @@
     }
 
     const strengths = result.metrics
-      .filter((m) => m.score >= 8.5)
+      .filter((m) => m.score >= 8 && m.cat !== 'photo' && m.impact !== 'low' && m.impact !== 'not scored')
       .sort((a, b) => b.score - a.score)
       .map((m) => m.label);
 
@@ -281,6 +381,7 @@
       glasses: shape.glasses,
       avoid: showBeard ? shape.avoid : shape.avoid.filter((t) => !FACIAL_HAIR_RE.test(t)),
       improvements,
+      photoTips,
       extras,
       strengths,
       general: showBeard ? GENERAL_TIPS : GENERAL_TIPS.filter((g) => g.title !== 'Beard care'),

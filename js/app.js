@@ -13,7 +13,10 @@
     restart: $('restart'), beardPref: $('beard-pref'), hairPref: $('hair-pref'),
     overall: $('overall-score'), ringFg: $('ring-fg'), faceShape: $('face-shape'),
     shapeSummary: $('shape-summary'), strengths: $('strengths'), warnings: $('warnings'),
-    metrics: $('metrics'), styles: $('styles'), improvements: $('improvements'),
+    metricsStructure: $('metrics-structure'), metricsFeatures: $('metrics-features'), metricsPhoto: $('metrics-photo'),
+    info: $('info'), photoTips: $('photo-tips'), percentileLine: $('percentile-line'),
+    asPhoto: $('as-photo'), bestPhoto: $('best-photo'),
+    styles: $('styles'), improvements: $('improvements'),
     general: $('general'), extras: $('extras'), inputSection: $('input-section'),
     options: $('options'), optionsSlot: $('options-slot'),
   };
@@ -27,21 +30,12 @@
     els.status.className = 'status' + (kind ? ' ' + kind : '');
   }
 
-  // GPU (WebGL) is much faster; fall back to plain CPU where it's unavailable.
-  async function initBackend() {
-    const tf = faceapi.tf;
-    try {
-      if (await tf.setBackend('webgl')) return tf.ready();
-    } catch (_) { /* fall through */ }
-    await tf.setBackend('cpu');
-    return tf.ready();
-  }
-
   function loadModels() {
     if (!modelsReady) {
-      modelsReady = initBackend().then(() => Promise.all([
+      modelsReady = FaceBackend.init('vendor/tfjs-wasm/').then(() => Promise.all([
         faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL),
       ])).catch((err) => {
         modelsReady = null;
         throw err;
@@ -140,7 +134,8 @@
 
       const detections = await faceapi
         .detectAllFaces(work, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 }))
-        .withFaceLandmarks();
+        .withFaceLandmarks()
+        .withFaceExpressions();
 
       if (!detections.length) {
         setStatus('No face found. Try a brighter, front-facing photo where your whole face is visible.', 'error');
@@ -149,7 +144,8 @@
       // Analyse the largest face in the picture.
       const best = detections.reduce((a, b) => (b.detection.box.area > a.detection.box.area ? b : a));
       const landmarks = best.landmarks.positions.map((p) => ({ x: p.x, y: p.y }));
-      const result = FaceAnalysis.analyze(landmarks);
+      const pixel = FaceFeatures.extract(work, landmarks);
+      const result = FaceAnalysis.analyze(landmarks, pixel, best.expressions);
 
       current = { image: work, landmarks, box: best.detection.box, result };
       if (detections.length > 1) {
@@ -264,6 +260,8 @@
     return e;
   }
 
+  const impactLabel = (impact) => (impact === 'not scored' ? 'not scored' : `${impact} impact`);
+
   function list(items) {
     const ul = el('ul');
     items.forEach((t) => ul.appendChild(el('li', null, t)));
@@ -285,8 +283,12 @@
 
     els.warnings.replaceChildren(...result.warnings.map((w) => el('li', null, w)));
 
-    els.metrics.replaceChildren(...result.metrics.map((m) => {
-      const card = el('div', 'metric');
+    els.percentileLine.textContent = `Higher than ${result.percentile}% of the 2,750 men in the reference set.`;
+    els.asPhoto.textContent = result.asPhotographed.toFixed(1);
+    els.bestPhoto.textContent = result.withBestPhoto.toFixed(1);
+
+    const card = (m) => {
+      const c = el('div', 'metric');
       const head = el('div', 'metric-head');
       head.append(el('span', 'metric-label', m.label), el('span', 'metric-score ' + scoreClass(m.score), m.score.toFixed(1)));
       const bar = el('div', 'bar');
@@ -294,9 +296,21 @@
       fill.style.width = `${m.score * 10}%`;
       bar.appendChild(fill);
       const vals = el('div', 'metric-vals small');
-      vals.append(el('span', null, `You: ${m.display}`), el('span', 'muted', `Typical ideal: ${m.idealText}`));
-      card.append(head, bar, vals, el('p', 'small muted', m.desc));
-      return card;
+      vals.append(el('span', null, `You: ${m.display}`), el('span', 'impact impact-' + m.impact.replace(' ', '-'), impactLabel(m.impact)));
+      c.append(head, bar, vals, el('p', 'small muted ideal', m.idealText), el('p', 'small muted', m.desc));
+      return c;
+    };
+    // Within each section, show the measurements that mattered most first.
+    const order = { high: 0, medium: 1, low: 2, 'not scored': 3 };
+    const sorted = result.metrics.slice().sort((a, b) => order[a.impact] - order[b.impact]);
+    els.metricsStructure.replaceChildren(...sorted.filter((m) => m.cat === 'structure').map(card));
+    els.metricsFeatures.replaceChildren(...sorted.filter((m) => m.cat === 'features').map(card));
+    els.metricsPhoto.replaceChildren(...sorted.filter((m) => m.cat === 'photo').map(card));
+
+    els.info.replaceChildren(...result.info.map((i) => {
+      const row = el('div', 'info-row');
+      row.append(el('span', 'info-label', i.label), el('strong', null, i.value), el('span', 'small muted', i.note));
+      return row;
     }));
 
     renderAdvice();
@@ -334,16 +348,17 @@
     }));
 
     if (advice.improvements.length) {
-      els.improvements.replaceChildren(...advice.improvements.map((imp) => {
+      // Most impactful first; expand the top five so the list isn't overwhelming.
+      els.improvements.replaceChildren(...advice.improvements.map((imp, i) => {
         const box = el('details', 'improvement');
-        box.open = true;
+        box.open = i < 5;
         const sum = el('summary');
-        sum.append(el('span', null, imp.title), el('span', 'metric-score ' + scoreClass(imp.score), `${imp.metric} · ${imp.score.toFixed(1)}`));
+        sum.append(el('span', null, imp.title), el('span', 'metric-score ' + scoreClass(imp.score), `${imp.metric} · ${imp.score.toFixed(1)} · ${impactLabel(imp.impact)}`));
         box.append(sum, list(imp.tips));
         return box;
       }));
     } else {
-      els.improvements.replaceChildren(el('p', null, 'All your measurements are within the typical range — focus on the general tips below to make the most of it.'));
+      els.improvements.replaceChildren(el('p', null, 'No weak spots stood out — every measurement is in the better half of the reference set. Focus on the general tips below.'));
     }
 
     els.extras.replaceChildren(...advice.extras.map((x) => {
@@ -351,6 +366,15 @@
       box.open = true;
       const sum = el('summary');
       sum.append(el('span', null, x.title));
+      box.append(sum, list(x.tips));
+      return box;
+    }));
+
+    els.photoTips.replaceChildren(...advice.photoTips.map((x) => {
+      const box = el('details', 'improvement');
+      box.open = true;
+      const sum = el('summary');
+      sum.append(el('span', null, x.title), el('span', 'metric-score ' + scoreClass(x.score), `${x.metric} · ${x.score.toFixed(1)}`));
       box.append(sum, list(x.tips));
       return box;
     }));

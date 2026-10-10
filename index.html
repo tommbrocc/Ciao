@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>FaceFit — Facial Analysis & Style Advisor</title>
+  <meta name="description" content="Upload a photo to get a facial proportion analysis, your face shape, and personalised hairstyle, beard and grooming suggestions. Runs entirely in your browser.">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">◐</span>
+      <span>FaceFit</span>
+    </div>
+    <p class="tagline">Facial proportion analysis &amp; personalised style advice</p>
+  </header>
+
+  <main>
+    <section id="input-section" class="card">
+      <h1>Analyse your face</h1>
+      <p class="muted">Use a well-lit, front-facing photo with a neutral expression and hair off your face. Your photo is processed <strong>on your device</strong> and never uploaded.</p>
+
+      <div class="options">
+        <label>
+          Style suggestions for
+          <select id="style-pref">
+            <option value="all">Show everything</option>
+            <option value="masculine">Men's styles</option>
+            <option value="feminine">Women's styles</option>
+          </select>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="facial-hair" checked>
+          Include beard / facial-hair suggestions
+        </label>
+      </div>
+
+      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Upload a photo">
+        <input type="file" id="file-input" accept="image/*" hidden>
+        <div class="dz-inner">
+          <div class="dz-icon" aria-hidden="true">⇪</div>
+          <p><strong>Drop a photo here</strong> or click to choose</p>
+          <p class="muted small">JPG, PNG or WebP</p>
+        </div>
+      </div>
+
+      <div class="or"><span>or</span></div>
+
+      <div class="camera">
+        <button id="camera-btn" class="btn secondary" type="button">Use camera</button>
+        <div id="camera-wrap" class="camera-wrap" hidden>
+          <video id="video" playsinline muted></video>
+          <div class="camera-guide" aria-hidden="true"></div>
+          <div class="camera-actions">
+            <button id="snap-btn" class="btn" type="button">Take photo</button>
+            <button id="camera-close" class="btn ghost" type="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </section>
+
+    <section id="results" hidden>
+      <div class="results-grid">
+        <div class="card photo-card">
+          <div class="canvas-wrap">
+            <canvas id="canvas"></canvas>
+          </div>
+          <label class="check small">
+            <input type="checkbox" id="show-overlay" checked> Show landmarks &amp; guides
+          </label>
+          <button id="restart" class="btn ghost" type="button">Analyse another photo</button>
+        </div>
+
+        <div class="card summary-card">
+          <div class="score-ring" id="score-ring">
+            <svg viewBox="0 0 120 120" aria-hidden="true">
+              <circle class="ring-bg" cx="60" cy="60" r="52"/>
+              <circle class="ring-fg" id="ring-fg" cx="60" cy="60" r="52"/>
+            </svg>
+            <div class="score-text">
+              <span id="overall-score">–</span>
+              <span class="small muted">/ 10</span>
+            </div>
+          </div>
+          <h2>Harmony score</h2>
+          <p class="muted small">Weighted average of the proportion measurements below.</p>
+          <div class="shape-badge">
+            Face shape: <strong id="face-shape">–</strong>
+          </div>
+          <p id="shape-summary" class="small"></p>
+          <div id="strengths"></div>
+          <ul id="warnings" class="warnings"></ul>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Measurements</h2>
+        <div id="metrics" class="metrics"></div>
+      </div>
+
+      <div class="card">
+        <h2>Styles that could suit you</h2>
+        <div id="styles" class="styles"></div>
+      </div>
+
+      <div class="card">
+        <h2>What you could work on</h2>
+        <div id="improvements" class="improvements"></div>
+      </div>
+
+      <div class="card">
+        <h2>General tips</h2>
+        <div id="general" class="general"></div>
+      </div>
+    </section>
+
+    <aside class="disclaimer small muted">
+      <strong>About these results.</strong> Scores compare geometric proportions from 68 detected facial points against
+      commonly cited aesthetic averages. They are an approximation — lighting, camera lens, head angle and expression all
+      affect them — and they say nothing about your worth. Attractiveness is shaped far more by expression, grooming,
+      confidence and personal style than by millimetres. Use this as a fun guide, not a verdict.
+    </aside>
+  </main>
+
+  <footer class="site-footer small muted">
+    Face detection by <a href="https://github.com/vladmandic/face-api" target="_blank" rel="noopener">face-api</a> (MIT). No data leaves your browser.
+  </footer>
+
+  <script src="vendor/face-api/face-api.js"></script>
+  <script src="js/analysis.js"></script>
+  <script src="js/recommendations.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

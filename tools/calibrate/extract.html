@@ -1,0 +1,42 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Calibration extractor</title>
+<!-- Loaded by tools/calibrate/extract.js in headless Chromium; not part of the app. -->
+<script src="../../vendor/face-api/face-api.js"></script>
+<script src="../../js/backend.js"></script>
+<script src="../../js/analysis.js"></script>
+<script src="../../js/features.js"></script>
+<script>
+  window.ready = (async () => {
+    await FaceBackend.init('../../vendor/tfjs-wasm/', new URLSearchParams(location.search).get('backend'));
+    const M = '../../vendor/face-api/model';
+    await Promise.all([
+      faceapi.nets.ssdMobilenetv1.loadFromUri(M),
+      faceapi.nets.faceLandmark68Net.loadFromUri(M),
+      faceapi.nets.faceExpressionNet.loadFromUri(M),
+    ]);
+    return faceapi.tf.getBackend();
+  })();
+
+  window.extractOne = async (url) => {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const dets = await faceapi
+      .detectAllFaces(img, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+      .withFaceLandmarks()
+      .withFaceExpressions();
+    if (!dets.length) return null;
+    const best = dets.reduce((a, b) => (b.detection.box.area > a.detection.box.area ? b : a));
+    const lm = best.landmarks.positions.map((p) => ({ x: p.x, y: p.y }));
+    const m = FaceAnalysis.measure(lm);
+    delete m.leveled;
+    return {
+      landmarks: lm.map((p) => [+p.x.toFixed(2), +p.y.toFixed(2)]),
+      expressions: best.expressions,
+      measures: m,
+      features: FaceFeatures.extract(img, lm),
+      detScore: best.detection.score,
+    };
+  };
+</script>

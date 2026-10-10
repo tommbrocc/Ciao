@@ -10,11 +10,12 @@
     cameraBtn: $('camera-btn'), cameraWrap: $('camera-wrap'), video: $('video'),
     snapBtn: $('snap-btn'), cameraClose: $('camera-close'),
     results: $('results'), canvas: $('canvas'), showOverlay: $('show-overlay'),
-    restart: $('restart'), stylePref: $('style-pref'), facialHair: $('facial-hair'),
+    restart: $('restart'), beardPref: $('beard-pref'), hairPref: $('hair-pref'),
     overall: $('overall-score'), ringFg: $('ring-fg'), faceShape: $('face-shape'),
     shapeSummary: $('shape-summary'), strengths: $('strengths'), warnings: $('warnings'),
     metrics: $('metrics'), styles: $('styles'), improvements: $('improvements'),
-    general: $('general'), inputSection: $('input-section'),
+    general: $('general'), extras: $('extras'), inputSection: $('input-section'),
+    options: $('options'), optionsSlot: $('options-slot'),
   };
 
   let modelsReady = null;
@@ -113,17 +114,14 @@
   els.restart.addEventListener('click', () => {
     els.results.hidden = true;
     els.inputSection.hidden = false;
+    els.dropzone.before(els.options); // move the beard/hair options back to the upload card
     els.fileInput.value = '';
     setStatus('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   });
 
   els.showOverlay.addEventListener('change', () => current && draw());
-  els.stylePref.addEventListener('change', () => {
-    els.facialHair.checked = els.stylePref.value !== 'feminine';
-    if (current) renderAdvice();
-  });
-  els.facialHair.addEventListener('change', () => current && renderAdvice());
+  [els.beardPref, els.hairPref].forEach((s) => s.addEventListener('change', () => current && renderAdvice()));
 
   // ---------- Processing ----------
 
@@ -276,6 +274,7 @@
     const { result } = current;
     els.inputSection.hidden = true;
     els.results.hidden = false;
+    els.optionsSlot.appendChild(els.options); // keep beard/hair options adjustable on the results
     draw();
 
     els.overall.textContent = result.overall.toFixed(1);
@@ -307,8 +306,8 @@
   function renderAdvice() {
     const { result } = current;
     const advice = FaceRecommendations.build(result, {
-      style: els.stylePref.value,
-      facialHair: els.facialHair.checked,
+      beard: els.beardPref.value,
+      hair: els.hairPref.value,
     });
 
     els.faceShape.textContent = advice.shape.name;
@@ -346,6 +345,15 @@
     } else {
       els.improvements.replaceChildren(el('p', null, 'All your measurements are within the typical range — focus on the general tips below to make the most of it.'));
     }
+
+    els.extras.replaceChildren(...advice.extras.map((x) => {
+      const box = el('details', 'improvement');
+      box.open = true;
+      const sum = el('summary');
+      sum.append(el('span', null, x.title));
+      box.append(sum, list(x.tips));
+      return box;
+    }));
 
     els.general.replaceChildren(...advice.general.map((g) => {
       const box = el('div', 'tip');

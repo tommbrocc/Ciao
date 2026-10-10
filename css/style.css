@@ -192,3 +192,5 @@ input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px;
   .card { padding: 18px; }
   h1 { font-size: 1.35rem; }
 }
+
+.extras:not(:empty) { margin-top: 12px; }

@@ -173,10 +173,10 @@
       oneSided: true,
     },
     {
-      id: 'thirds', label: 'Facial thirds', key: 'thirdsRatio', ideal: 0.92, tol: 0.14,
-      fmt: (v) => `${v.toFixed(2)} : 1`, idealText: '0.85 – 1.0 : 1',
+      id: 'thirds', label: 'Facial thirds', key: 'thirdsRatio', ideal: 0.98, tol: 0.14,
+      fmt: (v) => `${v.toFixed(2)} : 1`, idealText: '0.9 – 1.06 : 1',
       desc: 'Lower face (nose base → chin) compared to mid face (brows → nose base). Balanced faces have roughly equal thirds.',
-      band: (v) => (v < 0.8 ? 'low' : v > 1.05 ? 'high' : 'ideal'),
+      band: (v) => (v < 0.85 ? 'low' : v > 1.12 ? 'high' : 'ideal'),
     },
     {
       id: 'eyeSpacing', label: 'Eye spacing', key: 'eyeSpacing', ideal: 1.55, tol: 0.15,
@@ -191,10 +191,10 @@
       band: (v) => (v < 1 ? 'low' : v > 10 ? 'high' : 'ideal'),
     },
     {
-      id: 'fwhr', label: 'Width-to-height', key: 'fwhr', ideal: 1.75, tol: 0.2,
-      fmt: (v) => v.toFixed(2), idealText: '1.6 – 1.9',
-      desc: 'Face width divided by upper-face height (brows → upper lip). Captures how broad vs. long the mid face looks.',
-      band: (v) => (v < 1.55 ? 'low' : v > 1.95 ? 'high' : 'ideal'),
+      id: 'fwhr', label: 'Width-to-height', key: 'fwhr', ideal: 1.85, tol: 0.2,
+      fmt: (v) => v.toFixed(2), idealText: '1.7 – 2.0',
+      desc: 'Face width divided by upper-face height (brows → upper lip). Captures how broad vs. long the mid face looks; a higher ratio is generally read as more masculine.',
+      band: (v) => (v < 1.65 ? 'low' : v > 2.05 ? 'high' : 'ideal'),
     },
     {
       id: 'nose', label: 'Nose width', key: 'noseRatio', ideal: 0.63, tol: 0.1,
@@ -211,20 +211,20 @@
     {
       id: 'lips', label: 'Lip balance', key: 'lipRatio', ideal: 1.6, tol: 0.5,
       fmt: (v) => `1 : ${v.toFixed(2)}`, idealText: '1 : 1.6',
-      desc: 'Upper-lip height vs. lower-lip height. A slightly fuller lower lip is the most common aesthetic ideal.',
+      desc: 'Upper-lip height vs. lower-lip height. A slightly fuller lower lip is the most common ideal (this counts less toward the overall score).',
       band: (v) => (v < 1.15 ? 'low' : v > 2.2 ? 'high' : 'ideal'),
     },
     {
-      id: 'chin', label: 'Chin & philtrum', key: 'chinPhiltrum', ideal: 2.0, tol: 0.45,
-      fmt: (v) => `${v.toFixed(2)}× philtrum`, idealText: '≈ 2× philtrum',
+      id: 'chin', label: 'Chin & philtrum', key: 'chinPhiltrum', ideal: 2.2, tol: 0.45,
+      fmt: (v) => `${v.toFixed(2)}× philtrum`, idealText: '≈ 2 – 2.4×',
       desc: 'Chin height (lower lip → chin) compared to the philtrum (nose → upper lip). Indicates chin projection and lower-face balance.',
-      band: (v) => (v < 1.6 ? 'low' : v > 2.6 ? 'high' : 'ideal'),
+      band: (v) => (v < 1.75 ? 'low' : v > 2.8 ? 'high' : 'ideal'),
     },
     {
-      id: 'jaw', label: 'Jaw definition', key: 'jawAngle', ideal: 127, tol: 10,
-      fmt: (v) => `${v.toFixed(0)}°`, idealText: '118° – 134°',
+      id: 'jaw', label: 'Jaw definition', key: 'jawAngle', ideal: 123, tol: 10,
+      fmt: (v) => `${v.toFixed(0)}°`, idealText: '115° – 130°',
       desc: 'Approximate jaw angle from the front. Lower values mean a sharper, more angular jaw; higher values a softer, rounder one.',
-      band: (v) => (v < 115 ? 'high' : v > 138 ? 'low' : 'ideal'),
+      band: (v) => (v < 110 ? 'high' : v > 134 ? 'low' : 'ideal'),
     },
   ];
 
@@ -242,8 +242,8 @@
       };
     });
 
-    // Symmetry and thirds carry the most weight in perceived harmony studies.
-    const weights = { symmetry: 2, thirds: 1.5, eyeSpacing: 1.2, jaw: 1.2 };
+    // Symmetry, thirds and jaw/chin structure carry the most weight for male faces.
+    const weights = { symmetry: 2, thirds: 1.5, jaw: 1.5, eyeSpacing: 1.2, chin: 1.2, fwhr: 1.2, lips: 0.6 };
     let total = 0;
     let wsum = 0;
     for (const x of metrics) {

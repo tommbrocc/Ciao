@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>FaceFit — Facial Analysis & Style Advisor</title>
-  <meta name="description" content="Upload a photo to get a facial proportion analysis, your face shape, and personalised hairstyle, beard and grooming suggestions. Runs entirely in your browser.">
+  <title>FaceFit — Men's Facial Analysis & Style Advisor</title>
+  <meta name="description" content="Upload a photo to get a facial proportion analysis, your face shape, and personalised haircut, beard and grooming suggestions for men. Runs entirely in your browser.">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -13,26 +13,29 @@
       <span class="logo" aria-hidden="true">◐</span>
       <span>FaceFit</span>
     </div>
-    <p class="tagline">Facial proportion analysis &amp; personalised style advice</p>
+    <p class="tagline">Facial analysis &amp; style advice for men — haircut, beard, glasses &amp; grooming</p>
   </header>
 
   <main>
     <section id="input-section" class="card">
-      <h1>Analyse your face</h1>
-      <p class="muted">Use a well-lit, front-facing photo with a neutral expression and hair off your face. Your photo is processed <strong>on your device</strong> and never uploaded.</p>
+      <h1>Find your best look</h1>
+      <p class="muted">Use a well-lit, front-facing photo with a neutral expression and hair off your forehead. Clean-shaven or short stubble gives the most accurate jaw and chin readings. Your photo is processed <strong>on your device</strong> and never uploaded.</p>
 
-      <div class="options">
+      <div class="options" id="options">
         <label>
-          Style suggestions for
-          <select id="style-pref">
-            <option value="all">Show everything</option>
-            <option value="masculine">Men's styles</option>
-            <option value="feminine">Women's styles</option>
+          Beard
+          <select id="beard-pref">
+            <option value="full">I can grow a full beard</option>
+            <option value="patchy">My beard grows patchy</option>
+            <option value="none">I prefer clean-shaven</option>
           </select>
         </label>
-        <label class="check">
-          <input type="checkbox" id="facial-hair" checked>
-          Include beard / facial-hair suggestions
+        <label>
+          Hair
+          <select id="hair-pref">
+            <option value="full">Full / thick</option>
+            <option value="thinning">Thinning or receding</option>
+          </select>
         </label>
       </div>
 
@@ -103,12 +106,14 @@
 
       <div class="card">
         <h2>Styles that could suit you</h2>
+        <div id="options-slot"></div>
         <div id="styles" class="styles"></div>
       </div>
 
       <div class="card">
         <h2>What you could work on</h2>
         <div id="improvements" class="improvements"></div>
+        <div id="extras" class="improvements extras"></div>
       </div>
 
       <div class="card">
